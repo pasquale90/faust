@@ -94,8 +94,8 @@ class Parameter:
             for item in meta:
                 if isinstance(item, dict) and "RTPC" in item:
                     if self.is_bargraph():
-                        self.rtpcType = None
-                        return None
+                        self.rtpcType = "NonRTPC"
+                        return "NonRTPC"
                     self.rtpcType = item["RTPC"]
                     return "RTPC"
             return "NonRTPC"

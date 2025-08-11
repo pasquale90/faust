@@ -77,6 +77,12 @@ AKRESULT ${name}FX::Init(AK::IAkPluginMemAlloc* in_pAllocator, AK::IAkEffectPlug
 
     initDSP(static_cast<int>(in_rFormat.uSampleRate));
 
+        if (m_pContext->CanPostMonitorData())
+    {
+        FAUSTFLOAT data;
+        <<FOREACHPARAM:IF io_type==output:data=getParameter("${varname}");m_pContext->PostMonitorData((void*)&data, sizeof(${WwiseTypeCast}));m_pParams->SetParam(${PARAM_ID}, &data, sizeof(AkReal32));>>
+    }
+
     return AK_Success;
 }
 

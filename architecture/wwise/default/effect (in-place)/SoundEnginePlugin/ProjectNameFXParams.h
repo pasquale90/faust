@@ -33,9 +33,9 @@ the specific language governing permissions and limitations under the License.
 // Add parameters IDs here, those IDs should map to the AudioEnginePropertyID
 // attributes in the xml property definition.
 static const AkPluginParamID PARAM_PLACEHOLDER_ID = 0;
-<<FOREACHPARAM:IF io_type==input: static const AkPluginParamID ${PARAM_ID_NAME} = ${PARAM_ID}; >>
+<<FOREACHPARAM: static const AkPluginParamID ${PARAM_ID_NAME} = ${PARAM_ID}; >>
 static const AkUInt32 NUM_PARAMS = 1
-<<FOREACHPARAM:IF io_type==input: +1 >>
+<<FOREACHPARAM: +1 >>
 ;
 
 struct ${name}RTPCParams
@@ -46,7 +46,7 @@ struct ${name}RTPCParams
 
 struct ${name}NonRTPCParams
 {
-    <<FOREACHPARAM:IF isRTPC==NonRTPC AND io_type==input: ${WwiseTypeCast} ${RTPCname}; >>
+    <<FOREACHPARAM:IF isRTPC==NonRTPC: ${WwiseTypeCast} ${RTPCname}; >>
 };
 
 struct ${name}FXParams
