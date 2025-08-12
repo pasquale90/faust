@@ -18,6 +18,18 @@ def static_param_id() -> int:
         static_param_id.counter = 1
     return int(static_param_id.counter)
 
+def static_idc_height_ctr() -> int:
+    """
+    Static counter function to generate height values for the IDC parameters in the Windows UI panel.
+    Returns:
+        int: Unique integer ID, incremented with each call.
+    """
+    try:
+        static_idc_height_ctr.counter += 20
+    except AttributeError:
+        static_idc_height_ctr.counter = 0
+    return int(static_idc_height_ctr.counter)
+
 class Parameter:
     """
     Models a parameter extracted from a Faust DSP UI JSON structure, providing utilities to transform 
@@ -35,7 +47,7 @@ class Parameter:
         self.max = data.get("max")
         self.step = data.get("step", 1)
         self.init = data.get("init")
-
+        
         faustfloatType = "double" if faustfloat_isDouble else "float"
 
         self.io_type = self._derive_io_type()
@@ -51,7 +63,11 @@ class Parameter:
 
         self.Wwise_Type_Specific_WriteFunction = self._derive_Wwise_WriteFunction()
         self.Wwise_Type_Specific_GetFunction = self._derive_Wwise_GetFunction()
-    
+
+        self.hwndVarName = self._derive_hwndVarName()
+        self.hwnd_IDCNAME = self._derive_hwndVarName_IDC()
+        self.IDC_height = static_idc_height_ctr()
+
     def _derive_io_type(self):
         if self.is_bargraph():
             return "output"
@@ -94,8 +110,8 @@ class Parameter:
             for item in meta:
                 if isinstance(item, dict) and "RTPC" in item:
                     if self.is_bargraph():
-                        self.rtpcType = None
-                        return None
+                        self.rtpcType = "NonRTPC"
+                        return "NonRTPC"
                     self.rtpcType = item["RTPC"]
                     return "RTPC"
             return "NonRTPC"
@@ -179,3 +195,9 @@ class Parameter:
     
     def xml_applicable(self) -> bool:
         return not self.is_bargraph()
+    
+    def _derive_hwndVarName(self):
+        return self.RTPCname+"hwnd"
+    
+    def _derive_hwndVarName_IDC(self):
+        return "IDC"+self.hwndVarName.upper()

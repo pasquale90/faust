@@ -105,6 +105,10 @@ def parameter_integration(cfg) -> None:
         f"SoundEnginePlugin/{cfg.plugin_name}{cfg.plugin_suffix}Params.h",
         f"SoundEnginePlugin/{cfg.plugin_name}{cfg.plugin_suffix}Params.cpp",
         f"WwisePlugin/{cfg.plugin_name}Plugin.cpp",
+        f"WwisePlugin/{cfg.plugin_name}FX.rc", #{cfg.plugin_suffix}
+        f"WwisePlugin/resource.h",
+        f"WwisePlugin/Win32/{cfg.plugin_name}PluginGUI.h",
+        f"WwisePlugin/Win32/{cfg.plugin_name}PluginGUI.cpp"
     ]
     xml_file = f"WwisePlugin/{cfg.plugin_name}.xml"
 
@@ -162,7 +166,11 @@ def replace_custom_templates(cfg) -> None:
         f"SoundEnginePlugin/ProjectName{cfg.plugin_suffix}.cpp",
         f"SoundEnginePlugin/ProjectName{cfg.plugin_suffix}Params.h",
         f"SoundEnginePlugin/ProjectName{cfg.plugin_suffix}Params.cpp",
-        "WwisePlugin/ProjectNamePlugin.cpp"
+        "WwisePlugin/ProjectNamePlugin.cpp",
+        f"WwisePlugin/ProjectName{cfg.plugin_suffix}.rc",
+        f"WwisePlugin/resource.h",
+        f"WwisePlugin/Win32/ProjectNamePluginGUI.h",
+        f"WwisePlugin/Win32/ProjectNamePluginGUI.cpp"
     ]
     
     # Define the corresponding target files (using actual plugin name)
@@ -171,7 +179,11 @@ def replace_custom_templates(cfg) -> None:
         f"SoundEnginePlugin/{cfg.plugin_name}{cfg.plugin_suffix}.cpp",
         f"SoundEnginePlugin/{cfg.plugin_name}{cfg.plugin_suffix}Params.h",
         f"SoundEnginePlugin/{cfg.plugin_name}{cfg.plugin_suffix}Params.cpp",
-        f"WwisePlugin/{cfg.plugin_name}Plugin.cpp"
+        f"WwisePlugin/{cfg.plugin_name}Plugin.cpp",
+        f"WwisePlugin/{cfg.plugin_name}{cfg.plugin_suffix}.rc",
+        f"WwisePlugin/resource.h",
+        f"WwisePlugin/Win32/{cfg.plugin_name}PluginGUI.h",
+        f"WwisePlugin/Win32/{cfg.plugin_name}PluginGUI.cpp"
     ]
     
     target_dir = os.path.join(cfg.output_dir, cfg.plugin_name)

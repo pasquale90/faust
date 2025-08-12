@@ -34,7 +34,7 @@ def inject_properties_to_xml(parameters : list, xml_file : str) -> None:
     
     # Append each parameter;s property XML
     for param in parameters:
-        if param.xml_applicable():
+        # if param.xml_applicable():
             properties_elem.append(_parameter_to_property_xml(param))
 
     # format before saving - pretty-prints and removes blank lines for cleaner formatting.
@@ -66,13 +66,16 @@ def _parameter_to_property_xml(param) -> ET.Element:
 
     property_elem = ET.Element("Property", property_attrs)
 
-    if param.is_slider():
-        ET.SubElement(property_elem, "UserInterface", {
+    if param.is_slider() or param.is_bargraph():
+        ui_attrs = {
             "Step": str(param.step),
             "Fine": "0.1",
             "Decimals": "1",
             "UIMax": str(param.max or 1000)
-        })
+        }
+        if param.is_bargraph():
+            ui_attrs["ControlClass"] = "ReadOnlyText"
+        ET.SubElement(property_elem, "UserInterface", ui_attrs)
 
     ET.SubElement(property_elem, "DefaultValue").text = param.default_value()
     ET.SubElement(property_elem, "AudioEnginePropertyID").text = str(param.PARAM_ID)

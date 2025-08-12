@@ -141,6 +141,13 @@ void ${name}FX::Execute(AkAudioBuffer* io_pBuffer)
     }
 
     m_dsp.compute(static_cast<int>(framesToProcess), faust_inplace_buffer.data(), faust_inplace_buffer.data());
+
+if (m_pContext->CanPostMonitorData())
+{
+    FAUSTFLOAT data;
+    <<FOREACHPARAM:IF io_type==output:data=getParameter("${label}");m_pContext->PostMonitorData((void*)&data, sizeof(${WwiseTypeCast}));m_pParams->SetParam(${PARAM_ID}, &data, sizeof(AkReal32));>>
+}
+
 }
 
 AKRESULT ${name}FX::TimeSkip(AkUInt32 in_uFrames)

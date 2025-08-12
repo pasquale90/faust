@@ -1,0 +1,12 @@
+#include "resource.h"
+#include <windows.h>
+
+IDD_WINDOW_BIG DIALOGEX 0, 0, 300, 120
+STYLE DS_SETFONT | WS_CHILD | WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    <<FOREACHPARAM:IF io_type==output:LTEXT "", ${hwnd_IDCNAME}, 80, ${IDC_height}, 100, 13, WS_BORDER>>
+END
+
+#include "resource.h"
+#include <windows.h>
