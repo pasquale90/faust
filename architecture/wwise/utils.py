@@ -18,6 +18,7 @@ import platform
 import subprocess
 import argparse
 from typing import List, Optional
+from spkcfg import speaker_config_options
 
 def print_usage() -> None:
     """
@@ -63,10 +64,78 @@ def print_wwise_help() -> None:
     print("  --build-hooks-file <path>       path to a Python file defining one or more of the supported hooks (postbuild) to be called at various step during the build process")
     print("  --toolchain-vers <path>         Path to a \'ToolchainVers\' text file, containing a list of supported toolchain versions to pass to the platform\'s toolchain_setup script, to setup and define a set of env-vars to re-run each build step with.")
     print("  --toolchain-env-script <path>   Path to a \'GetToolchainEnv\' script, which, when executed with a version provided by the toolchain-vers file, returns a comma separated list of environment variables to apply for build step.")
+    print("  --spkcfg <in_uChannelMask>      Specify an explicit speaker configuration using one of the standard channel mask macros defined in AkSpeakerConfig.h")
     print("")
     print("Example:")
     print("  faust2wwise myfaustfile.dsp -double -o myWwisePlugin --platform Authoring_Windows --toolset vc170 --configuration Release --arch x64")
     print("")
+
+def detect_arch(cfg) -> str:
+    """
+    Automatically detects the system architecture and sets sensible defaults
+    for platform/toolset compatibility.
+    Returns:
+        arch (str if platform found): detected architecture.
+        Exits with an error if the architecture is not recognized/supported.
+    """
+    arch = platform.machine().lower()
+    if arch == "amd64":
+        return "x64"
+    elif arch == "x86_64":
+        return "x86_64"
+    elif arch in ["i386", "i686", "x86"]:
+        return "x32"
+    elif arch in ("arm64", "aarch64"):
+        return "arm64"
+    elif arch.startswith("arm"):
+        return "arm32"
+    else:
+        sys.stderr.write(
+            f"[Error] Unknown or unsupported architecture: '{arch}'.\n"
+            "Please verify if Wwise supports this platform and if yes, update the detect_arch() function to handle this platform .\n"
+        )
+        sys.exit(cfg.ERR_ENVIRONMENT)
+
+def platform_dependent_setup(cfg, parsed_args:argparse.Namespace) -> None:
+    """
+    Applies platform-specific configuration to the given config object.
+    Sets the default Wwise platform and toolset based on the current operating system 
+    and the parsed command-line arguments.
+
+    - On Windows:
+        - Uses the specified toolset if provided.
+        - Otherwise, selects a default based on the Wwise platform.
+        - Sets the default Wwise platform to "Authoring".
+    - On macOS:
+        - Disables toolset usage.
+        - Sets the default Wwise platform to "Mac".
+        
+    Args:
+        cfg (Config): The configuration object to modify.
+        parsed_args (argparse.Namespace): Parsed arguments from argparse.
+
+    Raises:
+        ValueError: If a toolset is provided on a non-Windows platform.
+    """
+
+    # Premake-specific options - toolset
+    cursys = platform.system()
+    if parsed_args.toolset:
+        if cursys != "Windows":
+            raise ValueError (f"{cursys} detected. Wwise does not support toolset options for this platform. This option is only for windows environments.")
+        cfg.wwise_toolset = parsed_args.toolset
+    elif cursys == "Windows":
+        if parsed_args.platform == "Windows_vc160":
+            cfg.wwise_toolset = "vc160"
+        else: # in all other cases : Authoring_Windows, Authoring, Windows_vc170, WinGC
+            cfg.wwise_toolset = "vc170"
+        print(f"[WARNING] Using default toolset '{cfg.wwise_toolset}' — it would be better to override it with --toolset command line option.")
+    
+    # set default platform
+    if cursys == "Darwin":
+        cfg.wwise_platform = "Mac"  # default platform for MacOs
+    elif cursys == "Windows":
+        cfg.wwise_platform = "Authoring" # default platform for Windows
 
 def create_wwise_config(cfg, parsed_args:argparse.Namespace) -> None:
     """
@@ -77,47 +146,12 @@ def create_wwise_config(cfg, parsed_args:argparse.Namespace) -> None:
         cfg (Config): The configuration object to modify.
         parsed_args (argparse.Namespace): Parsed arguments from argparse.
     """
-    def detect_arch() -> str:
-        """
-        Automatically detects the system architecture and sets sensible defaults
-        for platform/toolset compatibility.
-        Returns:
-            arch (str if platform found): detected architecture.
-            Exits with an error if the architecture is not recognized/supported.
-        """
-        arch = platform.machine().lower()
-        if arch in ["amd64", "x86_64"]:
-            return "x64"
-        elif arch in ["i386", "i686", "x86"]:
-            return "x32"
-        elif arch in ("arm64", "aarch64"):
-            return "arm64"
-        elif arch.startswith("arm"):
-            return "arm32"
-        else:
-            sys.stderr.write(
-                f"[Error] Unknown or unsupported architecture: '{arch}'.\n"
-                "Please verify if Wwise supports this platform and if yes, update the detect_arch() function to handle this platform .\n"
-            )
-            sys.exit(cfg.ERR_ENVIRONMENT)
-        
-    # Common to both premake and build
+    
+    # Overwrite any platform specific defaults in case explicit platform is passed as an argument
     if parsed_args.platform:
         cfg.wwise_platform = parsed_args.platform
-    cfg.wwise_plugin_interface = parsed_args.plugin_interface   # default value in-place. In case of being a source plugin, it will be reset to None, but it is not known at initialization time, only after compiling the dsp file with the Faust compiler.
 
-    # Premake-specific options
-    cursys = platform.system()
-    if parsed_args.toolset:
-        if cursys != "Windows":
-            raise ValueError (f"{cursys} detected. Wwise does not support toolset options for this platform. This option is only for windows environments.")
-        cfg.wwise_toolset = parsed_args.toolset
-    elif cursys == "Windows":
-        if cfg.wwise_platform == "Windows_vc160":
-            cfg.wwise_toolset = "vc160"
-        else: # in all other cases : Authoring_Windows, Authoring, Windows_vc170, WinGC
-            cfg.wwise_toolset = "vc170"
-        print(f"[WARNING] Using default toolset '{cfg.wwise_toolset}' — it would be better to override it with --toolset command line option.")
+    cfg.wwise_plugin_interface = parsed_args.plugin_interface   # default value in-place. In case of being a source plugin, it will be reset to None, but it is not known at initialization time, only after compiling the dsp file with the Faust compiler.
 
     cfg.wwise_debugger = parsed_args.debugger
     cfg.wwise_disable_codesign = parsed_args.disable_codesign
@@ -129,7 +163,7 @@ def create_wwise_config(cfg, parsed_args:argparse.Namespace) -> None:
     if parsed_args.arch:
         cfg.wwise_arch = parsed_args.arch
     else:
-        cfg.wwise_arch = detect_arch()
+        cfg.wwise_arch = detect_arch(cfg)
 
     if parsed_args.build_hooks_file:
         cfg.wwise_build_hooks_file = parsed_args.build_hooks_file
@@ -139,8 +173,11 @@ def create_wwise_config(cfg, parsed_args:argparse.Namespace) -> None:
 
     if parsed_args.toolchain_env_script:
         cfg.wwise_toolchain_env_script = parsed_args.toolchain_env_script
+    
+    if parsed_args.spkcfg:
+        cfg.wwise_speaker_cfg_channel_mask = parsed_args.spkcfg
 
-def parse_arguments(cfg, args:Optional[argparse.Namespace] = None) -> None:
+def parse_arguments(cfg, args:Optional[argparse.Namespace] = None) -> argparse.Namespace:
     """
     Parses command-line arguments and updates the configuration object.
 
@@ -178,6 +215,7 @@ def parse_arguments(cfg, args:Optional[argparse.Namespace] = None) -> None:
     parser.add_argument('--build-hooks-file', help='path to a Python file defining one or more of the supported hooks (postbuild) to be called at various step during the build process')
     parser.add_argument('--toolchain-vers', help='Path to a \'ToolchainVers\' text file, containing a list of supported toolchain versions to pass to the platform\'s toolchain_setup script, to setup and define a set of env-vars to re-run each build step with.')
     parser.add_argument('--toolchain-env-script', help='Path to a \'GetToolchainEnv\' script, which, when executed with a version provided by the toolchain-vers file, returns a comma separated list of environment variables to apply for build step.')
+    parser.add_argument('--spkcfg', type=str, choices=list(speaker_config_options.keys()), help='Explicit speaker configuration defined by a standard channel mask (e.g. AK_SPEAKER_SETUP_5POINT1), as specified in AkSpeakerConfig.h from the official Wwise SDK.')
 
     if args is None:
         args = sys.argv[1:]
@@ -200,8 +238,7 @@ def parse_arguments(cfg, args:Optional[argparse.Namespace] = None) -> None:
     cfg.faust_options = " ".join(all_faust_options)
     cfg.faust_options = cfg.faust_options.split() if isinstance(cfg.faust_options, str) else (cfg.faust_options or [])
 
-    # Wwise-related options
-    create_wwise_config(cfg, parsed_args)
+    return parsed_args
 
 def ensure_valid_plugin_name(name: str) -> str:
     """
@@ -257,9 +294,10 @@ def check_wwise_required_arguments(cfg) -> List[str]:
 def wwise_platform_and_toolset_compatible(cfg) -> bool:
 
     """
-    Ensures that platform and toolset are compatible.
-
-    TODO <will be updated>
+    Ensures that platform and toolset are compatible (on Windows only):
+    - If no toolset is provided, a default is assigned based on the platform.
+    - If an invalid combination is detected, the function returns False.
+    - On non-Windows platforms, the toolset (if specified) is ignored with a warning.
 
     Args:
         cfg (Config): The configuration object.
@@ -367,6 +405,9 @@ def run_system_command(cmd : List[str], error_code:Optional[int]=None) -> subpro
     try:
         result = subprocess.run(
             cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
             check=True,
         )
         if result.stdout:

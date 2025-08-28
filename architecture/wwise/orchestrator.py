@@ -30,6 +30,7 @@ import integrator
 import config
 import utils
 import jsonprocessor
+from spkcfg import speaker_config_options
 from typing import List,Optional
 
 class Faust2WwiseOrchestrator:
@@ -83,11 +84,15 @@ class Faust2WwiseOrchestrator:
             use of sys library to retrieve them.
         """
         
-        utils.parse_arguments(self.cfg, args)
+        parsed_args = utils.parse_arguments(self.cfg, args)
 
         print("------------------------------------------Preliminary Step : setup and validate environment")
 
-        # utils.setup_platform_paths(self.cfg) # TODO Discarded, but may be used to conditionally edit variables across different platforms (windows/macOs) 
+        # conditionally edit variables across different platforms (windows/macOs) 
+        utils.platform_dependent_setup(self.cfg, parsed_args) 
+
+        # Wwise-related options
+        utils.create_wwise_config(self.cfg, parsed_args)
 
         if self.dsp_file:
             self.dsp_filename = Path(self.dsp_file).stem # extract name without extension
@@ -126,6 +131,7 @@ class Faust2WwiseOrchestrator:
         cmd = [
             "faust",
             "-json",
+            "-I", str(Path(self.faust_include_dir)),
             "-a", self.archfile,
             *self.faust_options,
             self.dsp_file,
@@ -135,6 +141,13 @@ class Faust2WwiseOrchestrator:
         utils.run_system_command(cmd, self.ERR_FAUST_COMPILE)
         
         jsonprocessor.process_json_configuration(self.cfg)
+
+        if (self.wwise_speaker_cfg_channel_mask and \
+            self.num_outputs!=speaker_config_options[self.wwise_speaker_cfg_channel_mask]):
+                print("Speaker configuration provided does not match with number of outputs supported by the Faust program.")
+                print(f"Faust outputs: {self.num_outputs}")
+                print(f"Channel config mask provided : {self.wwise_speaker_cfg_channel_mask} --> {speaker_config_options[self.wwise_speaker_cfg_channel_mask]} num channels")
+                sys.exit(self.ERR_INVALID_INPUT)
 
         self.cfg.plugin_print() # print finalized configuration, after having parsed the faust't output json file
         self.cfg.lock()         # lock config to deprive any further modifications of its internal state, making it immutable
@@ -191,6 +204,7 @@ class Faust2WwiseOrchestrator:
             integrator.replace_custom_templates(self.cfg) # replace the vital for the integration files
             integrator.parameter_integration(self.cfg) # integrate parameters
             integrator.modify_lua_build_script(self.cfg) # inject faust includes within the lua script
+            integrator.replace_channel_config_line(self.cfg) 
             
         except Exception as e:
             print(f"Error {self.ERR_INTEGRATION}: Failed to integrate parameters")
