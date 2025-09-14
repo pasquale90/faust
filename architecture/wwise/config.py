@@ -61,6 +61,7 @@ class Config:
         self.faust_dsp_dir = faust_dsp_dir          # Directory containing the Faust dsp libraries
         self.faust_include_dir = faust_include_dir
         self.archfile = os.path.join(self.faust_dsp_dir, 'wwise.cpp')
+        self.soundfile_include_dir = os.path.join(os.path.dirname(self.faust_include_dir), 'share', 'faust', 'wwise', 'extras') # path to the sndfile.h
         # Wwise paths
         self.wwiseroot = wwiseroot                  # Root dir of the Wwise installation
         self.wp_script = os.path.join(self.wwiseroot, 'Scripts', 'Build', 'Plugins', 'wp.py')
@@ -125,6 +126,7 @@ class Config:
         print("Faust paths:")
         print(f"faust_dsp_dir: {self.faust_dsp_dir}")
         print(f"faust_include_dir: {self.faust_include_dir}")
+        print(f"soundfile_include_dir: {self.soundfile_include_dir}")
         print(f"archfile {self.archfile}")
         print("Wwise paths:")
         print(f"wwiseroot {self.wwiseroot}")

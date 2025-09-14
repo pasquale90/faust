@@ -1,6 +1,9 @@
 #include <faust/dsp/dsp.h>
 #include <faust/gui/MapUI.h>
 #include <faust/gui/meta.h>
+// includes for soundfile:
+#include <faust/gui/SoundUI.h>
+#include <faust/gui/LibsndfileReader.h>
 
 <<includeIntrinsic>>
 <<includeclass>>

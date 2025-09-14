@@ -208,6 +208,88 @@ def replace_custom_templates(cfg) -> None:
         sys.exit(cfg.ERR_INTEGRATION)
 
 
+# def modify_lua_build_script(cfg) -> None:
+#     """
+#     Modifies the Lua build script (`PremakePlugin.lua`) injecting faust include directories at specific parts 
+#     of its content.
+#     Args:
+#         cfg (Config): the configuration object
+#     """
+#     print("Modifying Lua build script for Faust includes...")
+    
+#     original_dir = os.getcwd()
+#     plugin_dir = os.path.join(cfg.output_dir, cfg.plugin_name)
+#     os.chdir(plugin_dir)
+    
+#     premake_file = "PremakePlugin.lua"
+#     if not os.path.isfile(premake_file):
+#         print(f"ERROR {cfg.ERR_INTEGRATION}: Could not find {premake_file}")
+#         sys.exit(cfg.ERR_INTEGRATION)
+    
+#     with open(premake_file, 'r', encoding='utf-8') as f:
+#         lines = f.readlines()
+    
+#     include_paths = [
+#         cfg.faust_include_dir,
+#         Path(cfg.soundfile_include_dir)
+#     ]
+
+#     sections = [
+#         'Plugin.sdk.static.includedirs',
+#         'Plugin.sdk.shared.includedirs',
+#         'Plugin.authoring.includedirs'
+#     ]
+    
+#     new_lines = []
+#     inside_section = False
+    
+#     for i, line in enumerate(lines):
+#         stripped = line.strip()
+        
+#         # Check if starting a section block
+#         if any(line.startswith(section) and '=' in line for section in sections):
+#             inside_section = True
+#             new_lines.append(line)
+#             continue
+        
+#         # If inside a section, look for the line that contains just the closing brace '}'
+#         if inside_section:
+#             if stripped == '}':
+#                 # Insert with the same indentation as the closing brace
+#                 indent = line[:line.index('}')]
+
+#                 # Walk backwards to check if faust path exists
+#                 for path in include_paths:
+#                     posix_path = path.as_posix()
+#                     already_added = False
+
+#                     for check_line in reversed(new_lines):
+#                         if posix_path in check_line:
+#                             already_added = True
+#                             break
+#                         if check_line.strip() == '':  # empty line - skip
+#                             continue
+#                         if check_line.strip() == '{':  # hit start of block, stop checking
+#                             break
+                    
+#                     if not already_added:
+#                         insert_line = f'{indent}"{posix_path}",\n' # convert to posix path before replacing
+#                         new_lines.append(insert_line)
+
+#                 new_lines.append(line)
+#                 inside_section = False
+#                 continue
+        
+#         # Normal line outside or inside section
+#         new_lines.append(line)
+    
+#     # Writing back ..
+#     with open(premake_file, 'w', encoding='utf-8') as f:
+#         f.writelines(new_lines)
+    
+#     print("OK : Updated Lua build script with Faust include paths")
+#     os.chdir(original_dir)
+
 def modify_lua_build_script(cfg) -> None:
     """
     Modifies the Lua build script (`PremakePlugin.lua`) injecting faust include directories at specific parts 
@@ -215,71 +297,99 @@ def modify_lua_build_script(cfg) -> None:
     Args:
         cfg (Config): the configuration object
     """
-    print("Modifying Lua build script for Faust includes...")
+    print("Modifying Lua build script...")
+        
+    include_paths = [
+        cfg.faust_include_dir.as_posix(),
+        Path(cfg.soundfile_include_dir).as_posix()
+    ]
     
+    inject_into_lua_script(cfg, include_paths, ".includedirs")
+
+    inject_into_lua_script(cfg, ["sndfile"], ".links")
+
+    #TODO: Hardcoded path requires fix.
+    inject_into_lua_script(cfg, [Path(os.path.join(cfg.soundfile_include_dir,"libsndfile-1.2.2-win64/lib")).as_posix()],".libdirs")
+
+    print("OK : Lua build script updated.")
+
+def inject_into_lua_script(cfg, list_of_texts: List[str], keyword: str) -> None:
+    """
+    Injects a list of strings into Lua table assignments matching a given keyword (e.g., ".links", ".includedirs").
+
+    Args:
+        cfg: Configuration object with attributes: output_dir, plugin_name, ERR_INTEGRATION
+        list_of_texts (List[str]): List of string values to inject (e.g., library names or include paths).
+        keyword (str): Keyword to match in Lua file (e.g., ".links", ".includedirs"). 
+                       Will inject values into all matching blocks.
+    """
+    print(f"Injecting values into Lua sections matching '{keyword}'...")
+
     original_dir = os.getcwd()
     plugin_dir = os.path.join(cfg.output_dir, cfg.plugin_name)
     os.chdir(plugin_dir)
-    
+
     premake_file = "PremakePlugin.lua"
     if not os.path.isfile(premake_file):
         print(f"ERROR {cfg.ERR_INTEGRATION}: Could not find {premake_file}")
         sys.exit(cfg.ERR_INTEGRATION)
-    
+
     with open(premake_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    
-    sections = [
-        'Plugin.sdk.static.includedirs',
-        'Plugin.sdk.shared.includedirs',
-        'Plugin.authoring.includedirs'
+
+    # Sections that should be modified
+    target_sections = [
+        f"Plugin.sdk.static{keyword}",
+        f"Plugin.sdk.shared{keyword}",
+        f"Plugin.authoring{keyword}"
     ]
-    
+
     new_lines = []
     inside_section = False
-    
+    current_section = ""
+
     for i, line in enumerate(lines):
         stripped = line.strip()
-        
-        # Check if starting a section block
-        if any(line.startswith(section) and '=' in line for section in sections):
+
+        if any(line.startswith(section) and '=' in line for section in target_sections):
             inside_section = True
+            current_section = next(section for section in target_sections if line.startswith(section))
             new_lines.append(line)
             continue
-        
-        # If inside a section, look for the line that contains just the closing brace '}'
+
         if inside_section:
             if stripped == '}':
+                # Determine indent level of closing brace
+                indent = line[:line.index('}')]
 
-                # Walk backwards to check if faust path exists
-                already_added = False
-                for check_line in reversed(new_lines):
-                    if str(cfg.faust_include_dir) in check_line:
-                        already_added = True
-                        break
-                    if check_line.strip() == '':  # empty line - skip
-                        continue
-                    if check_line.strip() == '{':  # hit start of block, stop checking
-                        break
-                
-                if not already_added:
-                    # Insert with the same indentation as the closing brace
-                    indent = line[:line.index('}')]
-                    insert_line = f'{indent}"{cfg.faust_include_dir.as_posix()}",\n' # convert to posix path before replacing
-                    new_lines.append(insert_line)
-                
+                # Avoid injecting duplicates
+                for item in list_of_texts:
+                    already_added = False
+
+                    for check_line in reversed(new_lines):
+                        if item in check_line:
+                            already_added = True
+                            break
+                        if check_line.strip() == '{':  # reached start of block
+                            break
+                        if check_line.strip() == '':
+                            continue
+                    
+                    if not already_added:
+                        new_lines.append(f'{indent}"{item}",\n')
+
+                # Close block
                 new_lines.append(line)
                 inside_section = False
+                current_section = ""
                 continue
-        
-        # Normal line outside or inside section
+
         new_lines.append(line)
-    
-    # Writing back ..
+
     with open(premake_file, 'w', encoding='utf-8') as f:
         f.writelines(new_lines)
-    
-    print("OK : Updated Lua build script with Faust include paths")
+
+    print(f"OK : Injected into Lua sections matching '{keyword}'")
     os.chdir(original_dir)
 
 def replace_channel_config_line(cfg) -> bool:

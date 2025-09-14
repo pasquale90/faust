@@ -36,6 +36,16 @@
 
 #include "faust/gui/Soundfile.h"
 
+// ref : https://github.com/maandree/libkeccak/pull/12/commits/6cd4612b341b6d5f0df0b604a1f2ee793539a0d9
+#if defined(__GLIBC__) || defined(__sun) || defined(__CYGWIN__)
+#include <alloca.h>
+#elif defined(_WIN32)
+#include <malloc.h>
+#if !defined(alloca)
+#define alloca _alloca  // for clang with MS Codegen
+#endif
+#endif
+
 /*
 // Deactivated for now, since the macOS remote cross-compiler fails with this code.
 #if __has_include(<filesystem>) && __cplusplus >= 201703L

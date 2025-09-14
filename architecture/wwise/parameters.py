@@ -26,8 +26,8 @@ class Parameter:
     def __init__(self, data: Dict[str, Any], faustfloat_isDouble : bool):
         self.raw = data
         self.varname = data.get("varname")
-        self.Shortname = data.get("shortname").capitalize()
         self.shortname = data.get("shortname")
+        self.Shortname = data.get("shortname").capitalize()
         self.type = data.get("type")
         self.address = data.get("address")
 
@@ -55,6 +55,8 @@ class Parameter:
     def _derive_io_type(self):
         if self.is_bargraph():
             return "output"
+        elif self.is_soundfile():
+            return None         # for now leave this empty.
         return "input"
 
     def _derive_init_value(self, init_value : Any) -> str:
@@ -70,7 +72,8 @@ class Parameter:
             "hslider": "0.0",
             "nentry": "0.0",
             "vslider": "0.0",
-            "button": "false"
+            "button": "false",
+            "soundfile" : None
         }.get(self.type, "0")
 
     def _derive_casted_type(self, faustfloatType : str) -> str:
@@ -83,6 +86,7 @@ class Parameter:
             "nentry": faustfloatType,
             "checkbox": "bool",
             "button" : "bool",
+            "soundfile" : None
         }.get(self.type, "auto")
 
     def _derive_is_rtpc(self) -> str:
@@ -93,7 +97,7 @@ class Parameter:
             meta = self.raw.get("meta", [])
             for item in meta:
                 if isinstance(item, dict) and "RTPC" in item:
-                    if self.is_bargraph():
+                    if self.is_bargraph() or self.is_soundfile():
                         self.rtpcType = None
                         return None
                     self.rtpcType = self._derive_rtpc_type(item["RTPC"])
@@ -113,6 +117,8 @@ class Parameter:
 
     def _derive_rtpc_name(self, unq_shortname : str) -> str:
         """Build a unique RTPC name based on type and shortname"""
+        if self.is_soundfile():
+            return None
         return self.paramCastedType[0] + unq_shortname
 
     def _cast_type_2wwise(self) -> str:
@@ -123,7 +129,7 @@ class Parameter:
             "double": "AkReal64",
             "bool"  : "bool"
              
-        }.get(self.paramCastedType)
+        }.get(self.paramCastedType, None)
 
     def _cast_type_2XMLwwise(self) -> str:
         """Map internal type to Wwise XML type."""
@@ -132,7 +138,7 @@ class Parameter:
             "double": "Real64",
             "bool": "bool",
             "int": "int32"
-        }.get(self.paramCastedType)
+        }.get(self.paramCastedType, None)
         
     def _derive_id_name(self, unq_shortname) -> str:
         """Generate a preprocessor macro name for parameter ID."""
@@ -186,5 +192,8 @@ class Parameter:
     def is_bargraph(self) -> bool:
         return self.type=="vbargraph" or self.type=="hbargraph"
     
+    def is_soundfile(self) -> bool:
+        return self.type=="soundfile"
+    
     def xml_applicable(self) -> bool:
-        return not self.is_bargraph()
+        return not (self.is_bargraph() or self.is_soundfile())
